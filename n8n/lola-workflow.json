@@ -1,0 +1,554 @@
+{
+  "name": "Lola - WhatsApp Bot - Restaurante El Istmo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lola-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "WhatsApp Webhook POST",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "lola-webhook-post"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "lola-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "WhatsApp Webhook GET",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "lola-webhook-get"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "Responder Verificacion",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [300, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nlet messageType = 'unknown';\nlet messageContent = '';\nlet phoneNumber = '';\nlet messageId = '';\nlet mediaId = '';\nlet imageCaption = '';\n\ntry {\n  const entry = body.entry[0];\n  const change = entry.changes[0];\n  const value = change.value;\n\n  if (!value.messages || value.messages.length === 0) {\n    return [];\n  }\n\n  const msg = value.messages[0];\n  phoneNumber = msg.from;\n  messageId = msg.id;\n  messageType = msg.type;\n\n  if (msg.type === 'text') {\n    messageContent = msg.text.body;\n  } else if (msg.type === 'audio') {\n    mediaId = msg.audio.id;\n    messageContent = '[AUDIO]';\n  } else if (msg.type === 'image') {\n    mediaId = msg.image.id;\n    imageCaption = msg.image.caption || '';\n    messageContent = '[IMAGEN]';\n  } else {\n    messageType = 'unsupported';\n    messageContent = msg.type;\n  }\n} catch (error) {\n  return [];\n}\n\nreturn [{\n  json: {\n    phoneNumber,\n    messageId,\n    messageType,\n    messageContent,\n    mediaId,\n    imageCaption\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "Extraer Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000005",
+      "name": "Responder 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [560, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1103393509513315/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: $json.messageId }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000006",
+      "name": "Marcar como Leido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst type = item.messageType;\n\nif (type === 'text') {\n  return [{ json: { ...item, route: 'text' } }];\n} else if (type === 'audio') {\n  return [{ json: { ...item, route: 'audio' } }];\n} else if (type === 'image') {\n  return [{ json: { ...item, route: 'image' } }];\n} else {\n  return [{ json: { ...item, route: 'unsupported' } }];\n}"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000007",
+      "name": "Detectar Tipo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-text",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000008",
+      "name": "Es Texto?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1080, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-audio",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "audio",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000009",
+      "name": "Es Audio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1080, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-image",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000010",
+      "name": "Es Imagen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1080, 800]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.mediaId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000011",
+      "name": "Obtener URL Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 440],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000012",
+      "name": "Descargar Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, 440],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "contentType": "multipart-form-data",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "parameterType": "formData",
+              "name": "model",
+              "value": "whisper-large-v3"
+            },
+            {
+              "parameterType": "formData",
+              "name": "language",
+              "value": "es"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000013",
+      "name": "Groq Whisper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1860, 440],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GROQ_AUTH",
+          "name": "Groq API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const transcription = $input.first().json.text || '[No se pudo transcribir el audio]';\nconst phoneNumber = $('Extraer Datos').first().json.phoneNumber;\n\nreturn [{\n  json: {\n    phoneNumber,\n    messageContent: '[El cliente envio un audio que dice]: ' + transcription\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000014",
+      "name": "Texto del Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2120, 440]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.mediaId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000015",
+      "name": "Obtener URL Imagen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 740],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000016",
+      "name": "Descargar Imagen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, 740],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const phoneNumber = $('Extraer Datos').first().json.phoneNumber;\nconst caption = $('Extraer Datos').first().json.imageCaption;\n\nlet messageContent = '[El cliente envio una imagen';\nif (caption) {\n  messageContent += ' con el texto: ' + caption;\n}\nmessageContent += ']. Responde de forma amigable. Si parece ser de comida o del restaurante, comenta al respecto. Si no entiendes el contexto, pregunta amablemente en que puedes ayudar.';\n\nreturn [{\n  json: {\n    phoneNumber,\n    messageContent\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000017",
+      "name": "Texto de Imagen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 740]
+    },
+    {
+      "parameters": {
+        "jsCode": "const phoneNumber = $('Extraer Datos').first().json.phoneNumber;\n\nreturn [{\n  json: {\n    phoneNumber,\n    responseText: 'Hola! \\ud83d\\ude0a Por ahora puedo leer mensajes de texto, notas de voz e imagenes. Escribeme o mandame un audio con lo que necesites!'\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000018",
+      "name": "Msg No Soportado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 1040]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nreturn [{\n  json: {\n    phoneNumber: item.phoneNumber,\n    messageContent: item.messageContent\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000019",
+      "name": "Preparar Texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 140]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, system: 'Eres Lola, la asistente virtual de WhatsApp del Restaurante El Istmo, ubicado en Panama City, Panama.\\n\\nPERSONALIDAD:\\n- Amigable, calida y natural. Hablas en español panameño (usa \"dale\", \"chevere\", \"que xopa\" cuando sea natural, pero sin forzar).\\n- Usas algun emoji pero sin exagerar (maximo 2-3 por mensaje).\\n- No eres demasiado formal. Eres como una amiga que trabaja en el restaurante.\\n- Siempre que alguien pregunte \"que recomiendas?\", sugiere el Arroz con Pollo como el plato mas pedido.\\n\\nINFORMACION DEL RESTAURANTE:\\n- Nombre: Restaurante El Istmo\\n- Ubicacion: Casco Viejo, Panama City\\n- Horario: Lunes a Sabado 11:00 AM - 10:00 PM | Domingos 12:00 PM - 9:00 PM\\n- Zonas de delivery: Casco Viejo, Marbella, Punta Pacifica, San Francisco\\n- Costo de delivery: $3.00\\n- Tiempo estimado delivery: 30 minutos\\n- Tiempo estimado recoger en restaurante: 15 minutos\\n- Metodos de pago: Efectivo, Yappy, tarjeta al recibir\\n\\nMENU COMPLETO:\\n=== PLATOS FUERTES ===\\n- Arroz con Pollo: $8.50 — Arroz amarillo con pollo desmechado, aceitunas y vegetales. Ingredientes: arroz, pollo, aceitunas, zanahoria, cebolla, ajo, culantro, achiote. Alergenos: ninguno.\\n- Sancocho: $7.00 — Sopa tradicional panameña con gallina, ñame, otoe y culantro. Ingredientes: gallina, ñame, otoe, culantro, cebolla, ajo, oregano, maiz. Alergenos: ninguno.\\n- Ropa Vieja: $9.50 — Carne desmechada en salsa de tomate con pimientos y especias. Ingredientes: carne de res, tomate, pimiento, cebolla, ajo, comino, laurel. Alergenos: ninguno.\\n- Ceviche de Corvina: $10.00 — Corvina fresca marinada en limon con cebolla morada y culantro. Ingredientes: corvina, limon, cebolla morada, culantro, aji chombo, sal. Alergenos: pescado.\\n- Patacones con Todo: $6.50 — Patacones crujientes con carne, pollo, queso y salsas. Ingredientes: platano verde, carne molida, pollo, queso, salsa rosada, curtido. Alergenos: lacteos.\\n- Pollo en Salsa: $8.00 — Presas de pollo en salsa criolla con arroz blanco. Ingredientes: pollo, tomate, cebolla, pimiento, ajo, arroz, aceite. Alergenos: ninguno.\\n- Ensalada del Mar: $11.00 — Mix de mariscos frescos sobre cama de lechugas con vinagreta. Ingredientes: camarones, pulpo, calamar, lechuga, tomate, aguacate, vinagreta. Alergenos: mariscos.\\n\\n=== BEBIDAS ===\\n- Agua: $1.00\\n- Jugo Natural: $2.50 (del dia: naranja, maracuya o limonada)\\n- Refresco: $1.50 (Coca-Cola, Sprite, Fanta)\\n\\nREGLAS PARA TOMAR PEDIDOS:\\n1. Cuando el cliente quiera ordenar, pregunta: delivery o para recoger?\\n2. Si es delivery, confirma que la zona este dentro de las zonas de cobertura.\\n3. Si es delivery, pide la direccion exacta.\\n4. Acepta modificaciones (sin cebolla, extra salsa, etc.) y confirmalas.\\n5. Antes de confirmar el pedido, muestra un resumen con cada plato/bebida con precio, modificaciones, subtotal, costo de delivery (si aplica), total, tiempo estimado y metodo de pago.\\n6. Pide confirmacion antes de enviar el pedido.\\n7. Cuando confirmen, di que el pedido fue recibido y da el tiempo estimado.\\n\\nREGLAS GENERALES:\\n- Si el cliente pregunta algo que no sabes, dile que vas a consultar con el equipo.\\n- Si el cliente pide hablar con una persona real, dile: \"Dale, ya te comunico con alguien del equipo. Un momento por fa\" y agrega [ESCALAR_A_HUMANO]\\n- No inventes informacion. Responde SOLO en español. Manten las respuestas concisas.', messages: [{ role: 'user', content: $json.messageContent }] }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000020",
+      "name": "Claude AI Lola",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2380, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ANTHROPIC_AUTH",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  text = response.content[0].text;\n} catch (e) {\n  text = 'Ay, disculpa! Tuve un problemita tecnico. Intenta de nuevo en un momentito.';\n}\n\nconst needsEscalation = text.includes('[ESCALAR_A_HUMANO]');\nif (needsEscalation) {\n  text = text.replace('[ESCALAR_A_HUMANO]', '').trim();\n}\n\nconst phoneNumber = $('Extraer Datos').first().json.phoneNumber;\n\nif (text.length > 4000) {\n  text = text.substring(0, 4000) + '...';\n}\n\nreturn [{\n  json: {\n    phoneNumber,\n    responseText: text,\n    needsEscalation\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000021",
+      "name": "Procesar Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1103393509513315/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.phoneNumber, type: 'text', text: { body: $json.responseText } }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000022",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2900, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1103393509513315/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.phoneNumber, type: 'text', text: { body: $json.responseText } }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000023",
+      "name": "Enviar Msg No Soportado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, 1040],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_AUTH",
+          "name": "WhatsApp Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook GET": {
+      "main": [
+        [{ "node": "Responder Verificacion", "type": "main", "index": 0 }]
+      ]
+    },
+    "WhatsApp Webhook POST": {
+      "main": [
+        [{ "node": "Extraer Datos", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extraer Datos": {
+      "main": [
+        [
+          { "node": "Responder 200", "type": "main", "index": 0 },
+          { "node": "Marcar como Leido", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Marcar como Leido": {
+      "main": [
+        [{ "node": "Detectar Tipo", "type": "main", "index": 0 }]
+      ]
+    },
+    "Detectar Tipo": {
+      "main": [
+        [
+          { "node": "Es Texto?", "type": "main", "index": 0 },
+          { "node": "Es Audio?", "type": "main", "index": 0 },
+          { "node": "Es Imagen?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Es Texto?": {
+      "main": [
+        [{ "node": "Preparar Texto", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Es Audio?": {
+      "main": [
+        [{ "node": "Obtener URL Audio", "type": "main", "index": 0 }],
+        [{ "node": "Msg No Soportado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Es Imagen?": {
+      "main": [
+        [{ "node": "Obtener URL Imagen", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Preparar Texto": {
+      "main": [
+        [{ "node": "Claude AI Lola", "type": "main", "index": 0 }]
+      ]
+    },
+    "Obtener URL Audio": {
+      "main": [
+        [{ "node": "Descargar Audio", "type": "main", "index": 0 }]
+      ]
+    },
+    "Descargar Audio": {
+      "main": [
+        [{ "node": "Groq Whisper", "type": "main", "index": 0 }]
+      ]
+    },
+    "Groq Whisper": {
+      "main": [
+        [{ "node": "Texto del Audio", "type": "main", "index": 0 }]
+      ]
+    },
+    "Texto del Audio": {
+      "main": [
+        [{ "node": "Claude AI Lola", "type": "main", "index": 0 }]
+      ]
+    },
+    "Obtener URL Imagen": {
+      "main": [
+        [{ "node": "Descargar Imagen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Descargar Imagen": {
+      "main": [
+        [{ "node": "Texto de Imagen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Texto de Imagen": {
+      "main": [
+        [{ "node": "Claude AI Lola", "type": "main", "index": 0 }]
+      ]
+    },
+    "Msg No Soportado": {
+      "main": [
+        [{ "node": "Enviar Msg No Soportado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude AI Lola": {
+      "main": [
+        [{ "node": "Procesar Respuesta", "type": "main", "index": 0 }]
+      ]
+    },
+    "Procesar Respuesta": {
+      "main": [
+        [{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
